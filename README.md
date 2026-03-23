@@ -33,3 +33,25 @@ Join us on Discord!
 - [Contribution](https://ffmpegwasm.netlify.app/docs/contribution/core)
 
 Please sponsor ffmpeg.wasm to make it sustainable. :heart:
+
+## Browser Demo
+
+[`browser-demo.html`](./browser-demo.html) is a self-contained, single-file browser UI for client-side media processing powered by ffmpeg.wasm.
+
+**Features:**
+
+- File picker with drag-and-drop support
+- Three one-click operations:
+  - **Transcode to MP4 (H.264)** – re-encode any video to H.264/AAC MP4
+  - **Extract thumbnail (JPEG)** – grab a frame from a video as a JPEG image
+  - **Extract audio (AAC)** – strip the audio track from a video
+- Real-time progress log streamed from the ffmpeg process
+- In-browser preview (video / audio / image) and direct download link for the output
+- Zero server dependency — all processing runs in your browser via WebAssembly
+- æl.net aesthetic: monospace, dark/teal/neon palette
+
+**Usage:**
+
+Open `browser-demo.html` directly in a modern browser (Chrome 90+, Firefox 90+, Edge 90+). No build step or server required.
+
+> **Screenshot / live link:** Add a screenshot or GitHub Pages link here after deploying.

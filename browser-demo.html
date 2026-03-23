@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>æl media forge · ffmpeg.wasm demo</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0e0f;
+      --surface: #111618;
+      --border: #1e3033;
+      --teal: #00d4c8;
+      --teal-dim: #007e78;
+      --neon: #39ff9a;
+      --neon-dim: #1a7a46;
+      --text: #c8d8d8;
+      --muted: #5a7070;
+      --danger: #ff4d6a;
+      --font: 'Courier New', Courier, monospace;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 2rem 2rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    header h1 {
+      font-size: 1.4rem;
+      color: var(--teal);
+      letter-spacing: 0.08em;
+    }
+
+    header h1 span { color: var(--neon); }
+
+    header .tagline {
+      margin-top: 0.3rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+    }
+
+    main {
+      flex: 1;
+      padding: 2rem;
+      max-width: 820px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    /* Drop zone */
+    #drop-zone {
+      border: 2px dashed var(--teal-dim);
+      border-radius: 4px;
+      padding: 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      background: var(--surface);
+      position: relative;
+    }
+
+    #drop-zone:hover,
+    #drop-zone.drag-over {
+      border-color: var(--teal);
+      background: #0d1a1c;
+    }
+
+    #drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    #drop-zone .dz-label {
+      pointer-events: none;
+      color: var(--teal);
+      font-size: 1rem;
+    }
+
+    #drop-zone .dz-hint {
+      pointer-events: none;
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 0.4rem;
+    }
+
+    #file-name {
+      margin-top: 0.5rem;
+      font-size: 0.78rem;
+      color: var(--neon);
+      min-height: 1.2em;
+      word-break: break-all;
+    }
+
+    /* Operations */
+    .ops {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+    }
+
+    .ops button {
+      flex: 1 1 200px;
+      padding: 0.7rem 1rem;
+      background: var(--surface);
+      border: 1px solid var(--teal-dim);
+      border-radius: 3px;
+      color: var(--teal);
+      font-family: var(--font);
+      font-size: 0.85rem;
+      cursor: pointer;
+      letter-spacing: 0.04em;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+
+    .ops button:hover:not(:disabled) {
+      background: #0d2224;
+      border-color: var(--teal);
+      color: var(--neon);
+    }
+
+    .ops button:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    /* Progress log */
+    #log {
+      margin-top: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 0.75rem 1rem;
+      min-height: 6rem;
+      max-height: 14rem;
+      overflow-y: auto;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    #log .line { margin: 0.1rem 0; }
+    #log .line.info  { color: var(--text); }
+    #log .line.ok    { color: var(--neon); }
+    #log .line.err   { color: var(--danger); }
+    #log .line.prog  { color: var(--teal); }
+
+    /* Output area */
+    #output {
+      margin-top: 1.5rem;
+      display: none;
+    }
+
+    #output h2 {
+      font-size: 0.85rem;
+      color: var(--teal);
+      letter-spacing: 0.06em;
+      margin-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.4rem;
+    }
+
+    #preview-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 0.75rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 80px;
+    }
+
+    #preview-wrap video,
+    #preview-wrap audio,
+    #preview-wrap img {
+      max-width: 100%;
+      max-height: 300px;
+      border-radius: 2px;
+    }
+
+    #download-link {
+      display: inline-block;
+      padding: 0.5rem 1.2rem;
+      background: var(--neon-dim);
+      border: 1px solid var(--neon);
+      border-radius: 3px;
+      color: var(--neon);
+      font-family: var(--font);
+      font-size: 0.82rem;
+      text-decoration: none;
+      letter-spacing: 0.04em;
+      transition: background 0.15s;
+    }
+
+    #download-link:hover { background: #257a4a; }
+
+    footer {
+      padding: 1rem 2rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-align: center;
+      letter-spacing: 0.04em;
+    }
+
+    footer a { color: var(--teal-dim); text-decoration: none; }
+    footer a:hover { color: var(--teal); }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>æl <span>&gt;_</span> media forge</h1>
+  <p class="tagline">client-side media forge · no gatekeepers · æl.net</p>
+</header>
+
+<main>
+  <!-- File picker -->
+  <div id="drop-zone">
+    <input type="file" id="file-input" accept="video/*,audio/*,image/*" />
+    <p class="dz-label">▲ drop file or click to select</p>
+    <p class="dz-hint">video · audio · image — processed entirely in your browser</p>
+  </div>
+  <p id="file-name"></p>
+
+  <!-- Operations -->
+  <div class="ops">
+    <button id="btn-transcode" disabled>⟳ transcode to MP4 (H.264)</button>
+    <button id="btn-thumbnail" disabled>⬡ extract thumbnail (JPEG)</button>
+    <button id="btn-audio"     disabled>♫ extract audio (AAC)</button>
+  </div>
+
+  <!-- Progress log -->
+  <div id="log"><span class="line muted">// awaiting input…</span></div>
+
+  <!-- Output -->
+  <div id="output">
+    <h2>// output</h2>
+    <div id="preview-wrap"></div>
+    <a id="download-link" href="#" download>↓ download</a>
+  </div>
+</main>
+
+<footer>
+  powered by <a href="https://github.com/ffmpegwasm/ffmpeg.wasm" target="_blank" rel="noopener">ffmpeg.wasm</a>
+  · fork <a href="https://github.com/MYaelMendez/ffmpeg.wasm" target="_blank" rel="noopener">@MYaelMendez</a>
+</footer>
+
+<script type="module">
+  // ---------------------------------------------------------------------------
+  // ffmpeg.wasm v0.12.x ESM — loaded from CDN (no local build required)
+  // Single-thread core avoids SharedArrayBuffer / COOP-COEP requirements.
+  //
+  // Production note: For hardened deployments, host these assets locally and
+  // add Subresource Integrity (SRI) hashes. Dynamic ESM imports do not support
+  // the integrity attribute directly; serving from your own origin is the
+  // recommended mitigation against CDN supply-chain risks.
+  // ---------------------------------------------------------------------------
+  const CDN_BASE = 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm';
+  const CORE_URL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js';
+
+  const { FFmpeg } = await import(`${CDN_BASE}/index.js`);
+  const { fetchFile, toBlobURL } = await import(`${CDN_BASE}/util.js`);
+
+  // ---------------------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------------------
+  const ffmpeg = new FFmpeg();
+  let loaded   = false;
+  let inputFile = null;
+
+  // ---------------------------------------------------------------------------
+  // DOM refs
+  // ---------------------------------------------------------------------------
+  const dropZone    = document.getElementById('drop-zone');
+  const fileInput   = document.getElementById('file-input');
+  const fileNameEl  = document.getElementById('file-name');
+  const logEl       = document.getElementById('log');
+  const outputEl    = document.getElementById('output');
+  const previewWrap = document.getElementById('preview-wrap');
+  const dlLink      = document.getElementById('download-link');
+
+  const btns = {
+    transcode: document.getElementById('btn-transcode'),
+    thumbnail: document.getElementById('btn-thumbnail'),
+    audio:     document.getElementById('btn-audio'),
+  };
+
+  // ---------------------------------------------------------------------------
+  // Logging
+  // ---------------------------------------------------------------------------
+  function log(msg, cls = 'info') {
+    // Keep up to 200 lines
+    const lines = logEl.querySelectorAll('.line');
+    if (lines.length >= 200) lines[0].remove();
+    const el = document.createElement('div');
+    el.className = `line ${cls}`;
+    el.textContent = msg;
+    logEl.appendChild(el);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  // Capture ffmpeg progress + log messages
+  ffmpeg.on('log',      ({ message }) => log(`[ff] ${message}`, 'prog'));
+  ffmpeg.on('progress', ({ progress, time }) => {
+    const pct = Math.round(progress * 100);
+    log(`[progress] ${pct}% · time ${(time / 1e6).toFixed(1)}s`, 'prog');
+  });
+
+  // ---------------------------------------------------------------------------
+  // Load ffmpeg core (lazy — on first operation)
+  // ---------------------------------------------------------------------------
+  async function ensureLoaded() {
+    if (loaded) return;
+    log('loading ffmpeg core…', 'info');
+    await ffmpeg.load({ coreURL: await toBlobURL(CORE_URL, 'text/javascript') });
+    loaded = true;
+    log('ffmpeg core ready ✓', 'ok');
+  }
+
+  // ---------------------------------------------------------------------------
+  // File selection
+  // ---------------------------------------------------------------------------
+  function setFile(file) {
+    if (!file) return;
+    inputFile = file;
+    fileNameEl.textContent = `▸ ${file.name}  (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+    Object.values(btns).forEach(b => (b.disabled = false));
+    outputEl.style.display = 'none';
+    previewWrap.innerHTML  = '';
+    log(`file selected: ${file.name}`, 'info');
+  }
+
+  fileInput.addEventListener('change', () => setFile(fileInput.files[0]));
+
+  dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    setFile(e.dataTransfer.files[0]);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Core processing helper
+  // ---------------------------------------------------------------------------
+  async function run(args, outputName, mimeType) {
+    if (!inputFile) { log('no file selected', 'err'); return; }
+
+    Object.values(btns).forEach(b => (b.disabled = true));
+    outputEl.style.display = 'none';
+    previewWrap.innerHTML  = '';
+    logEl.innerHTML        = '';
+
+    try {
+      await ensureLoaded();
+
+      const inputName = inputFile.name
+        .replace(/[^a-zA-Z0-9_-]/g, '_')  // strip dots and special chars
+        .replace(/^_+/, '') || 'input';    // remove leading underscores
+      log(`reading ${inputName}…`, 'info');
+      await ffmpeg.writeFile(inputName, await fetchFile(inputFile));
+
+      log(`running: ffmpeg ${['-i', inputName, ...args, outputName].join(' ')}`, 'info');
+      await ffmpeg.exec(['-i', inputName, ...args, outputName]);
+
+      log(`reading output ${outputName}…`, 'info');
+      const data = await ffmpeg.readFile(outputName);
+      const blob = new Blob([data.buffer], { type: mimeType });
+      const url  = URL.createObjectURL(blob);
+
+      // Preview
+      let previewEl;
+      if (mimeType.startsWith('video/')) {
+        previewEl = document.createElement('video');
+        previewEl.controls = true;
+        previewEl.src = url;
+      } else if (mimeType.startsWith('audio/')) {
+        previewEl = document.createElement('audio');
+        previewEl.controls = true;
+        previewEl.src = url;
+      } else if (mimeType.startsWith('image/')) {
+        previewEl = document.createElement('img');
+        previewEl.alt = outputName;
+        previewEl.src = url;
+      }
+      if (previewEl) previewWrap.appendChild(previewEl);
+
+      dlLink.href     = url;
+      dlLink.download = outputName;
+      dlLink.textContent = `↓ download ${outputName}`;
+      outputEl.style.display = 'block';
+
+      // Cleanup FS
+      await ffmpeg.deleteFile(inputName);
+      await ffmpeg.deleteFile(outputName);
+
+      log(`done ✓  ${outputName}`, 'ok');
+    } catch (err) {
+      log(`error: ${err.message}`, 'err');
+      console.error(err);
+    } finally {
+      Object.values(btns).forEach(b => (b.disabled = false));
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Button handlers
+  // ---------------------------------------------------------------------------
+  btns.transcode.addEventListener('click', () =>
+    run(['-c:v', 'libx264', '-preset', 'fast', '-crf', '23', '-c:a', 'aac'],
+        'output.mp4', 'video/mp4'));
+
+  btns.thumbnail.addEventListener('click', () =>
+    run(['-ss', '00:00:02', '-frames:v', '1', '-q:v', '2'],
+        'thumbnail.jpg', 'image/jpeg'));
+
+  btns.audio.addEventListener('click', () =>
+    run(['-vn', '-c:a', 'aac', '-b:a', '128k'],
+        'audio.aac', 'audio/aac'));
+</script>
+</body>
+</html>
